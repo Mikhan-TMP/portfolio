@@ -1,8 +1,8 @@
 
 import type * as THREE from "three";
-import { Canvas, useLoader } from "@react-three/fiber"
+import { Canvas, useLoader, useFrame } from "@react-three/fiber"
 import { OrbitControls, Text, Float, Environment, PerspectiveCamera } from "@react-three/drei"
-import { Suspense, useRef } from "react"
+import { Suspense, useRef, useState, useEffect } from "react"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 function Platform({ position, color }: { position: [number, number, number], color: string }) {
@@ -14,29 +14,99 @@ function Platform({ position, color }: { position: [number, number, number], col
   )
 }
 
-function Boxes({ position, color, isFloating, floatDetails = { speed: 0, rotationIntensity: 0, floatIntensity: 0 } }: { position: [number, number, number], color: string, isFloating: boolean, floatDetails?: { speed: number, rotationIntensity: number, floatIntensity: number } }) {
+function Boxes({ 
+    position, 
+    color, 
+    isFloating, 
+    floatDetails = { speed: 0, rotationIntensity: 0, floatIntensity: 0 },
+    moveDirection = 'y',
+  }: { 
+    position: [number, number, number], 
+    color: string, 
+    isFloating: boolean, 
+    floatDetails?: { speed: number, rotationIntensity: number, floatIntensity: number } 
+    moveDirection?: 'x' | 'y' | 'z'
+  }) {
+  const meshRef = useRef<THREE.Mesh>(null)
+
+  useFrame(({ clock }) => {
+    if (isFloating && meshRef.current) {
+      const time = clock.getElapsedTime()
+      const offset = Math.sin(time * floatDetails.speed) * floatDetails.floatIntensity
+
+      // clone the original position so it's not overwritten
+      const newPosition = [...position] as [number, number, number]
+      if (moveDirection === 'x') newPosition[0] += offset
+      else if (moveDirection === 'y') newPosition[1] += offset
+      else if (moveDirection === 'z') newPosition[2] += offset
+
+      meshRef.current.position.set(...newPosition)
+    }
+  })
+
   return (
-    <>
-      {isFloating ? (
-        <Float speed={floatDetails.speed} rotationIntensity={floatDetails.rotationIntensity} floatIntensity={floatDetails.floatIntensity}>
-          <mesh position={position}>
-            <boxGeometry args={[0.5, 0.5, 0.5]} />
-            <meshStandardMaterial color={color} />
-          </mesh>
-        </Float>
-      ) : (
-        <mesh position={position}>
-          <boxGeometry args={[0.5, 0.5, 0.5]} />
-          <meshStandardMaterial color={color} />
-        </mesh>
-      )}
-    </>
+    <mesh ref={meshRef} position={position}>
+      <boxGeometry args={[0.5, 0.5, 0.5]} />
+      <meshStandardMaterial color={color} />
+    </mesh>
+  )
+}
+
+function loadGLBModel(url: string, position: [number, number, number], scale: [number, number, number], rotation: [number, number, number],  scrollY: number = 0) {
+  const gltf = useLoader(GLTFLoader, url)
+  const scrollRotation = rotation.map((r, i) => i === 1 ? r + scrollY * 0.002 : r) as [number, number, number];
+  return (
+    <mesh>
+      <primitive object={gltf.scene} />
+      <primitive object={gltf.scene} position={position} />
+      <primitive object={gltf.scene} scale={scale} />
+      <primitive object={gltf.scene} rotation={rotation} />
+      <primitive object={gltf.scene} rotation={scrollRotation} />
+    </mesh>
   )
 }
 
 
+function Circles({ 
+    position, 
+    color, 
+    isFloating, 
+    floatDetails = { speed: 0, rotationIntensity: 0, floatIntensity: 0 },
+    moveDirection = 'y',
+  }: { 
+    position: [number, number, number], 
+    color: string, 
+    isFloating: boolean, 
+    floatDetails?: { speed: number, rotationIntensity: number, floatIntensity: number } 
+    moveDirection?: 'x' | 'y' | 'z'
+  }) {
+  const meshRef = useRef<THREE.Mesh>(null)
 
-function Scene() {
+  useFrame(({ clock }) => {
+    if (isFloating && meshRef.current) {
+      const time = clock.getElapsedTime()
+      const offset = Math.sin(time * floatDetails.speed) * floatDetails.floatIntensity
+
+      // clone the original position so it's not overwritten
+      const newPosition = [...position] as [number, number, number]
+      if (moveDirection === 'x') newPosition[0] += offset
+      else if (moveDirection === 'y') newPosition[1] += offset
+      else if (moveDirection === 'z') newPosition[2] += offset
+
+      meshRef.current.position.set(...newPosition)
+    }
+  })
+
+  return (
+    <mesh ref={meshRef} position={position}>
+      <sphereGeometry args={[0.1, 16, 16]} />
+      <meshStandardMaterial color={color} />
+    </mesh>
+  )
+}
+
+
+function Scene({ scrollY = 0 }: { scrollY?: number }) {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null)
 
   return (
@@ -53,20 +123,22 @@ function Scene() {
       <Platform position={[0, 0, 0]} color="#6274E7" />
       {/* <Boxes position={[-1.2, 0.5, 1.2]} /> */}
       <Boxes position={[-1.2, 0.5, 0.7]} color="#FFFFFF" isFloating={false}  />
+      <Circles position={[-0.7, 0.35, 0.7]} color="#EDE342" isFloating={false} />
+
       <Boxes position={[-1.2, 0.5, 0.2]} color="#FFFFFF" isFloating={false}  />
       <Boxes position={[-1.2, 1, 0.2]} color="#FFFFFF" isFloating={false}  />
       <Boxes position={[-0.7, 0.5, 0.2]} color="#FFFFFF" isFloating={false}  />
 
       {/* Animate this */}
-      <Boxes position={[-1.2, 1, -0.7]} color="#FFFFFF" isFloating={true} floatDetails={{ speed: 1, rotationIntensity: 0.0, floatIntensity: 1 }} />
-      <Boxes position={[-0.7, 1.5, -0.7]} color="#FFFFFF" isFloating={true} floatDetails={{ speed: 1, rotationIntensity: 0.0, floatIntensity: 3 }} />
-      <Boxes position={[-0.7, 1, -1.2]} color="#FFFFFF" isFloating={true} floatDetails={{ speed: 1, rotationIntensity: 0.0, floatIntensity: 2 }} />
+      <Boxes position={[-1.2, 1, -0.7]} color="#FFFFFF" isFloating={true} floatDetails={{ speed: 0.7, rotationIntensity: 0.0, floatIntensity: 0.1 }} moveDirection="z" />
+      <Boxes position={[-0.7, 1.5, -0.7]} color="#FFFFFF" isFloating={true} floatDetails={{ speed: 0.9, rotationIntensity: 0.0, floatIntensity: 0.20 }} moveDirection="y" />
+      <Boxes position={[-0.7, 1, -1.2]} color="#FFFFFF" isFloating={true} floatDetails={{ speed: 0.7, rotationIntensity: 0.0, floatIntensity: 0.1 }} moveDirection="x" />
 
 
       <Boxes position={[0.7, 0.5, -1.2]} color="#EDE342" isFloating={false} />
       <Boxes position={[0.2, 0.5, -1.2]} color="#EDE342" isFloating={false} />
 
-
+      {loadGLBModel("/assets/model/laptop.glb", [.5, 0.3, .6], [0.3, 0.3, 0.3], [0, -0.8, 0], scrollY)}
 
       <OrbitControls enablePan={false} />
 
@@ -90,6 +162,15 @@ function Desktop() {
 
 
 export default function Hero() {
+  const [scrollY, setScrollY] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => setScrollY(window.scrollY);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+
   return (
     <div className="">
         <div className=" border
@@ -107,7 +188,7 @@ export default function Hero() {
             <Canvas camera={{ position: [0, 0, 5], fov: 75 }}>
               <Suspense fallback={null}>
                 {/* <Desktop /> */}
-                <Scene />
+                <Scene scrollY={scrollY}/>
               </Suspense>
             </Canvas>
           </div>
@@ -124,6 +205,9 @@ export default function Hero() {
               Lorem IpsumImnida
             </a>
           </div> */}
+        </div>
+        <div className="h-100">
+
         </div>
     </div>
   );
